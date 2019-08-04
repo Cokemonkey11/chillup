@@ -1,4 +1,4 @@
-Chillup is a tool for searching for dependencies, for use with the [wurstlang.org](Wurst programming language).
+Chillup is a tool for searching for dependencies, for use with the [wurst programming language](wurstlang.org).
 
 Example use:
 
