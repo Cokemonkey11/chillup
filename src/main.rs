@@ -31,7 +31,7 @@ fn dump_dependencies() -> Result<(), Error> {
                 .ok_or(ChillupError::NoneError{ el: "a".into() })?;
             let description = repo.find(Class("text-gray"))
                 .into_iter()
-                .next()
+                .nth(2)
                 .ok_or(ChillupError::NoneError{ el: "text-gray".into() })?;
             
             println!(

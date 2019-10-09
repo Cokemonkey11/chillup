@@ -1,6 +1,6 @@
 [package]
 name = "chillup"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Cokemonkey11"]
 edition = "2018"
 description = "A dependency search tool for wurstlang libraries"
