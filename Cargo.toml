@@ -1,6 +1,6 @@
 [package]
 name = "chillup"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Cokemonkey11"]
 edition = "2018"
 description = "A dependency search tool for wurstlang libraries"
@@ -12,7 +12,8 @@ keywords = ["wurst", "wurstlang", "dependencies", "search"]
 categories = ["command-line-utilities", "development-tools", "web-programming::http-client"]
 
 [dependencies]
-failure = "0.1.5"
-paw     = "1.0.0"
-reqwest = "0.9.19"
-select  = "0.4.3"
+anyhow    = "1.0"
+paw       = "1.0"
+reqwest   = "0.9"
+select    = "0.4"
+thiserror = "1.0"
