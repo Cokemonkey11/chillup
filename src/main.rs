@@ -19,46 +19,50 @@ impl ChillupError {
     }
 }
 
-fn dump_dependencies() -> Result<()> {
-    Document::from(&get("https://github.com/topics/wurst")?.text()?[..])
-        .find(Name("article"))
-        .into_iter()
+fn dump_dependencies(page: usize) -> Result<()> {
+    let doc = Document::from(
+        &get(&format!(
+            "https://github.com/search?p={}&q=topic%3Awurst+topic%3Adependency",
+            page
+        ))?
+        .text()?[..],
+    );
+
+    doc.find(Class("repo-list-item").child(Class("mt-n1")))
         .try_for_each(|repo| -> Result<()> {
-            if repo
-                .find(Class("topic-tag"))
-                .into_iter()
-                .find(|node| node.text().trim() == "dependency")
-                .is_some()
-            {
-                let anchor = repo
-                    .find(Class("f3").descendant(Name("a")))
-                    .into_iter()
-                    .nth(1)
-                    .ok_or(ChillupError::of_none("a", repo))?;
+            let anchor = repo
+                .find(Class("f4").child(Name("a")))
+                .next()
+                .ok_or_else(|| ChillupError::of_none("f4 > a", repo))?;
 
-                // Fetch description.
-                let px_3 = repo
-                    .find(Class("px-3"))
-                    .into_iter()
-                    .nth(2)
-                    .ok_or(ChillupError::of_none("px-3", repo))?;
-                let description = px_3
-                    .find(Name("div"))
-                    .into_iter()
-                    .nth(0)
-                    .ok_or(ChillupError::of_none("div", px_3));
+            let description = repo
+                .find(Class("mb-1"))
+                .next()
+                .ok_or_else(|| ChillupError::of_none("mb-1", repo));
 
-                println!(
-                    "https://github.com{:<50}{}",
-                    anchor
-                        .attr("href")
-                        .ok_or(ChillupError::of_none("href", anchor))?,
-                    description.map(|n| n.text().trim().to_owned()).unwrap_or_else(|_| "(No description)".into())
-                );
-            }
+            println!(
+                "https://github.com{:<50}{}",
+                anchor
+                    .attr("href")
+                    .ok_or_else(|| ChillupError::of_none("href", anchor))?,
+                description
+                    .map(|n| n.text().trim().to_owned())
+                    .unwrap_or_else(|_| "(No description)".into())
+            );
 
             Ok(())
         })?;
+
+    if !doc
+        .find(Class("next_page"))
+        .next()
+        .ok_or_else(|| ChillupError::of_none("next_page", doc.clone()))?
+        .attr("class")
+        .unwrap()
+        .contains("disabled")
+    {
+        return dump_dependencies(page + 1);
+    }
 
     Ok(())
 }
@@ -95,7 +99,7 @@ To make your own wurst library searchable, it must be:
 
             Ok(())
         }
-        "--dump" => dump_dependencies(),
+        "--dump" => dump_dependencies(1),
         _ => {
             println!("Couldn't understand {} - try --help?", arg);
             Ok(())
