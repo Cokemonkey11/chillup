@@ -1,5 +1,5 @@
 use anyhow::Result;
-use reqwest::get;
+use reqwest::blocking::get;
 use select::document::Document;
 use select::predicate::{Class, Name, Predicate};
 use thiserror::Error;
