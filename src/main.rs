@@ -21,12 +21,14 @@ impl ChillupError {
 
 fn dump_dependencies(page: usize) -> Result<()> {
     let doc = Document::from(
-        &get(&format!(
+        &get(format!(
             "https://github.com/search?p={}&q=topic%3Awurst+topic%3Adependency",
             page
         ))?
         .text()?[..],
     );
+
+    let mut matched = false;
 
     doc.find(Class("repo-list-item").child(Class("mt-n1")))
         .try_for_each(|repo| -> Result<()> {
@@ -39,6 +41,8 @@ fn dump_dependencies(page: usize) -> Result<()> {
                 .find(Class("mb-1"))
                 .next()
                 .ok_or_else(|| ChillupError::of_none("mb-1", repo));
+
+            matched = true;
 
             println!(
                 "https://github.com{:<50}{}",
@@ -53,13 +57,7 @@ fn dump_dependencies(page: usize) -> Result<()> {
             Ok(())
         })?;
 
-    if !doc
-        .find(Class("next_page"))
-        .next()
-        .ok_or_else(|| ChillupError::of_none("next_page", doc.clone()))?
-        .attr("class")
-        .unwrap()
-        .contains("disabled")
+    if matched
     {
         return dump_dependencies(page + 1);
     }

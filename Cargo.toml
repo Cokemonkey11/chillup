@@ -13,6 +13,7 @@ categories = ["command-line-utilities", "development-tools", "web-programming::h
 
 [dependencies]
 anyhow    = "1.0"
+octocrab = "0.25.1"
 paw       = "1.0"
 reqwest   = { version = "0.11", features = ["blocking"] }
 select    = "0.4"
