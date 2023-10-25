@@ -3,6 +3,7 @@ use reqwest::blocking::get;
 use select::document::Document;
 use select::predicate::{Class, Name, Predicate};
 use thiserror::Error;
+use octocrab;
 
 #[derive(Debug, Error)]
 enum ChillupError {
@@ -20,6 +21,7 @@ impl ChillupError {
 }
 
 fn dump_dependencies(page: usize) -> Result<()> {
+    let octocrab = octocrab::instance();
     let doc = Document::from(
         &get(format!(
             "https://github.com/search?p={}&q=topic%3Awurst+topic%3Adependency",
