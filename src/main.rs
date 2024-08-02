@@ -1,94 +1,119 @@
 use anyhow::Result;
-use reqwest::blocking::get;
-use select::document::Document;
-use select::predicate::{Class, Name, Predicate};
-use thiserror::Error;
+use clap::Parser;
+use comfy_table::Table;
+use futures_util::TryStreamExt;
+use tokio::pin;
 
-#[derive(Debug, Error)]
-enum ChillupError {
-    #[error("\n{context}\n^^^\nCouldn't find an element {el:#?} in the node described above")]
-    DomSchemaMismatchError { el: String, context: String },
+fn optional_to_string_or_empty<T: ToString>(t: Option<T>) -> String {
+    t.map(|v| v.to_string()).unwrap_or_else(|| "".into())
 }
 
-impl ChillupError {
-    fn of_none<T: Into<String>, U: std::fmt::Debug>(el: T, context: U) -> ChillupError {
-        ChillupError::DomSchemaMismatchError {
-            el: el.into(),
-            context: format!("{:#?}", context),
+fn insert_newlines(s: &str, interval: usize) -> String {
+    s.chars() // Get an iterator of (index, char)
+        .fold((String::new(), 0), |(mut acc, mut count), ch| {
+            if count >= interval && ch.is_whitespace() {
+                acc.push('\n'); // Insert newline at whitespace after every 'interval' characters
+                count = 0; // Reset count after inserting newline
+            } else {
+                acc.push(ch); // Push character to accumulator
+                count += ch.len_utf8(); // Increment count by character length
+            }
+            (acc, count)
+        })
+        .0 // Get the accumulated string
+}
+
+async fn recursive_dump_dependencies(
+    use_table: bool,
+    include_archived: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let octocrab = octocrab::instance();
+    let search_results = octocrab
+        .search()
+        .repositories("topic:wurst topic:dependency")
+        .sort("stars")
+        .order("desc")
+        .send()
+        .await?;
+    let search_result_stream = search_results.into_stream(&octocrab);
+
+    pin!(search_result_stream);
+
+    let mut table = Table::new();
+    table.set_header(vec!["Stars", "URL", "Description"]);
+
+    if !use_table {
+        println!("Stars\t{:60}\tDescription", "URL");
+    }
+
+    while let Some(repo) = search_result_stream.try_next().await? {
+        if repo.archived.unwrap_or(false) && !include_archived {
+            continue;
+        }
+
+        let stars = repo.stargazers_count.unwrap_or(0);
+        let url = optional_to_string_or_empty(repo.html_url);
+        let description = insert_newlines(&optional_to_string_or_empty(repo.description), 60);
+
+        if use_table {
+            table.add_row(vec![stars.to_string(), url, description]);
+        } else {
+            println!(
+                "{}\t{:60}\t{}",
+                stars,
+                url,
+                &description
+                    .chars()
+                    .enumerate()
+                    .map(|(idx, chr)| if idx == 59 { '…' } else { chr })
+                    .take(60)
+                    .collect::<String>()
+            );
         }
     }
-}
 
-fn dump_dependencies(page: usize) -> Result<()> {
-    let doc = Document::from(
-        &get(&format!(
-            "https://github.com/search?p={}&q=topic%3Awurst+topic%3Adependency",
-            page
-        ))?
-        .text()?[..],
-    );
+    if use_table {
+        table.load_preset(comfy_table::presets::UTF8_FULL_CONDENSED);
+        table.remove_style(comfy_table::TableComponent::HorizontalLines);
+        table.remove_style(comfy_table::TableComponent::MiddleIntersections);
 
-    doc.find(Class("repo-list-item").child(Class("mt-n1")))
-        .try_for_each(|repo| -> Result<()> {
-            let anchor = repo
-                .find(Class("f4").child(Name("a")))
-                .next()
-                .ok_or_else(|| ChillupError::of_none("f4 > a", repo))?;
-
-            let description = repo
-                .find(Class("mb-1"))
-                .next()
-                .ok_or_else(|| ChillupError::of_none("mb-1", repo));
-
-            println!(
-                "https://github.com{:<50}{}",
-                anchor
-                    .attr("href")
-                    .ok_or_else(|| ChillupError::of_none("href", anchor))?,
-                description
-                    .map(|n| n.text().trim().to_owned())
-                    .unwrap_or_else(|_| "(No description)".into())
-            );
-
-            Ok(())
-        })?;
-
-    if !doc
-        .find(Class("next_page"))
-        .next()
-        .ok_or_else(|| ChillupError::of_none("next_page", doc.clone()))?
-        .attr("class")
-        .unwrap()
-        .contains("disabled")
-    {
-        return dump_dependencies(page + 1);
+        println!("{table}");
     }
 
     Ok(())
 }
 
-#[paw::main]
-fn main(args: paw::Args) -> Result<()> {
-    let len = args.len();
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Dump all dependencies found
+    #[arg(long)]
+    dump: bool,
 
-    args.chain(if len == 1 {
-        vec!["--help".into()].into_iter()
-    } else {
-        vec![].into_iter()
-    })
-    .skip(1)
-    .filter(|arg| &arg[0..2] == "--")
-    .try_for_each(|arg| match &arg[..] {
-        "--help" => {
-            println!("--help\t::\tThis message");
+    /// How to contribute to the package index
+    #[arg(long)]
+    index: bool,
 
-            println!("--dump\t::\tDump all dependencies found");
+    /// When enabled, dumped pages are in table format
+    #[arg(long)]
+    table: bool,
 
-            println!("--index\t::\tHow to contribute to the package index");
+    /// When enabled, archived repositories are included
+    #[arg(long)]
+    archive: bool,
+}
 
-            Ok(())
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+
+    match (args.dump, args.index) {
+        (true, _) => {
+            recursive_dump_dependencies(args.table, args.archive).await?;
+
+            Ok::<(), Box<dyn std::error::Error>>(())
         }
-        "--index" => {
+        (_, true) => {
             println!(
                 r"
 To make your own wurst library searchable, it must be:
@@ -99,12 +124,12 @@ To make your own wurst library searchable, it must be:
 
             Ok(())
         }
-        "--dump" => dump_dependencies(1),
         _ => {
-            println!("Couldn't understand {} - try --help?", arg);
+            println!("?? wyd\nTry --help");
+
             Ok(())
         }
-    })?;
+    }?;
 
     Ok(())
 }
