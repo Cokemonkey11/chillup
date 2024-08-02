@@ -1,8 +1,8 @@
 [package]
 name = "chillup"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Cokemonkey11"]
-edition = "2018"
+edition = "2021"
 description = "A dependency search tool for wurstlang libraries"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/Cokemonkey11/chillup"
@@ -12,9 +12,12 @@ keywords = ["wurst", "wurstlang", "dependencies", "search"]
 categories = ["command-line-utilities", "development-tools", "web-programming::http-client"]
 
 [dependencies]
-anyhow    = "1.0"
-octocrab = "0.25.1"
-paw       = "1.0"
-reqwest   = { version = "0.11", features = ["blocking"] }
-select    = "0.4"
-thiserror = "1.0"
+anyhow       = "1.0"
+clap         = { version = "4.5", features = ["derive"] }
+comfy-table  = "7.1"
+futures-util = "0.3"
+octocrab     = { version = "0.39", features = ["stream"] }
+reqwest      = "0.12"
+select       = "0.6"
+thiserror    = "1.0"
+tokio        = { version = "1.39", features = ["full"] }
