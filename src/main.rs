@@ -30,7 +30,7 @@ async fn recursive_dump_dependencies(
     let octocrab = octocrab::instance();
     let search_results = octocrab
         .search()
-        .repositories("topic:wurst topic:dependency")
+        .repositories("topic:wurst topic:dependency -topic:minecraft")
         .sort("stars")
         .order("desc")
         .send()
