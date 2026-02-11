@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use comfy_table::Table;
 use futures_util::TryStreamExt;
+use rustls::crypto::ring;
 use tokio::pin;
 
 fn optional_to_string_or_empty<T: ToString>(t: Option<T>) -> String {
@@ -105,6 +106,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _ = rustls::crypto::CryptoProvider::install_default(ring::default_provider());
     let args = Args::parse();
 
     match (args.dump, args.index) {
